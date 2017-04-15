@@ -111,7 +111,7 @@ def conv_block(connected, input_tensor, kernel_size, filters, stage, block, stri
     return x
 
 
-def ResNet50(state, include_top=True, weights='imagenet',
+def ResNet50(state, weights, include_top=True,
              input_tensor=None, input_shape=None,
              pooling=None,
              classes=1000):
@@ -161,7 +161,7 @@ def ResNet50(state, include_top=True, weights='imagenet',
         ValueError: in case of invalid argument for `weights`,
             or invalid input shape.
     """
-    if weights not in {'imagenet', None}:
+    if weights not in {'imagenet', 'current'}:
         raise ValueError('The `weights` argument should be either '
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
@@ -248,6 +248,9 @@ def ResNet50(state, include_top=True, weights='imagenet',
                                     cache_subdir='models',
                                     md5_hash='a268eb855778b3df3c7506639542a6af')
         model.load_weights(weights_path)
+    elif weights == 'current':
+        model.load_weights('current_model.h5')
+
         if K.backend() == 'theano':
             layer_utils.convert_all_kernels_in_model(model)
 
@@ -271,8 +274,13 @@ def ResNet50(state, include_top=True, weights='imagenet',
 
 
 #
-def update_model(state):
+def update_model(state, weight):
     #state = [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    model = ResNet50(state, include_top=True, weights='imagenet')
+    if weight == 'imagenet':
+        model = ResNet50(state, include_top=True, weights='imagenet')
+    elif weight == 'current':
+        model = ResNet50(state, include_top=True, weights='current')
+    model.save('current_model.h5')
+
     return model
 
