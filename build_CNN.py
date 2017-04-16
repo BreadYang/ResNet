@@ -248,8 +248,6 @@ def ResNet50(state, weights, include_top=True,
                                     cache_subdir='models',
                                     md5_hash='a268eb855778b3df3c7506639542a6af')
         model.load_weights(weights_path)
-    elif weights == 'current':
-        model.load_weights('current_model.h5')
 
         if K.backend() == 'theano':
             layer_utils.convert_all_kernels_in_model(model)
@@ -270,6 +268,9 @@ def ResNet50(state, weights, include_top=True,
                               '`image_data_format="channels_last"` in '
                               'your Keras config '
                               'at ~/.keras/keras.json.')
+
+    elif weights == 'current':
+        model.load_weights('current_model.h5')
     return model
 
 
@@ -284,3 +285,6 @@ def update_model(state, weight):
 
     return model
 
+#
+state = [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0]
+update_model(state, 'imagenet')
