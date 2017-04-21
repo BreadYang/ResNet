@@ -61,8 +61,18 @@ def identity_block(connected, input_tensor, kernel_size, filters, stage, block):
     x = Conv2D(filters3, (1, 1), name=conv_name_base + '2c')(x)
     x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2c')(x)
 
+    #Identity connection
     if connected == 1:
         x = layers.add([x, input_tensor])
+    #Softmax attention
+    elif connected == 2:
+        channel_sum = K.sum(x,axis=2)
+        softmax = K.expand_dims(K.softmax(channel_sum),axis=2)
+        x = layers.add([x, input_tensor]) * softmax
+    #Sum of absolute values
+    elif connected == 3:
+        abs_channel_sum = K.sum(K.abs(x),axis=2)
+        x = layers.add([x, input_tensor]) * abs_channel_sum
     x = Activation('relu')(x)
     return x
 
@@ -286,5 +296,5 @@ def update_model(state, weight):
     return model
 
 #
-state = [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0]
+state = [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 2, 1, 0]
 update_model(state, 'imagenet')
