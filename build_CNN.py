@@ -29,6 +29,8 @@ from keras.engine.topology import get_source_inputs
 WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels.h5'
 WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
+POWER = 2
+
 
 def identity_block(connected, input_tensor, kernel_size, filters, stage, block):
     """The identity block is the block that has no conv layer at shortcut.
@@ -73,6 +75,15 @@ def identity_block(connected, input_tensor, kernel_size, filters, stage, block):
     elif connected == 3:
         abs_channel_sum = K.sum(K.abs(x),axis=2)
         x = layers.add([x, input_tensor]) * abs_channel_sum
+    #Absolute value to a power
+    elif connected == 4:
+        attention = K.sum(K.pow(K.abs(x),POWER),axis=2)
+        x = layers.add([x, input_tensor]) * attention
+    #Maxout
+    elif connected == 5:
+        channel_max = K.max(x,axis=2)
+        attention = K.pow(channel_max,POWER)
+        x = layers.add([x, input_tensor]) * attention
     x = Activation('relu')(x)
     return x
 
