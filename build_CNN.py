@@ -25,11 +25,11 @@ from keras.applications.imagenet_utils import preprocess_input
 from keras.applications.imagenet_utils import _obtain_input_shape
 from keras.engine.topology import get_source_inputs
 
+from attention_layers import *
+
 
 WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels.h5'
 WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
-
-POWER = 2
 
 
 def identity_block(connected, input_tensor, kernel_size, filters, stage, block):
@@ -68,22 +68,22 @@ def identity_block(connected, input_tensor, kernel_size, filters, stage, block):
         x = layers.add([x, input_tensor])
     #Softmax attention
     elif connected == 2:
-        channel_sum = K.sum(x,axis=2)
-        softmax = K.expand_dims(K.softmax(channel_sum),axis=2)
-        x = layers.add([x, input_tensor]) * softmax
+        softmax_att = Lambda(softmaxLayer,output_shape=softmaxLayer_output_shape)(x)
+        att_x = layers.multiply([x,softmax_att])
+        att_input_tensor = layers.multiply([input_tensor,softmax_att])
+        x = layers.add([att_x,att_input_tensor])
     #Sum of absolute values
     elif connected == 3:
-        abs_channel_sum = K.sum(K.abs(x),axis=2)
-        x = layers.add([x, input_tensor]) * abs_channel_sum
-    #Absolute value to a power
-    elif connected == 4:
-        attention = K.sum(K.pow(K.abs(x),POWER),axis=2)
-        x = layers.add([x, input_tensor]) * attention
+        abs_val_att = Lambda(sumAbsVal,output_shape=sumAbsVal_output_shape)(x)
+        att_x = layers.multiply([x,abs_val_att])
+        att_input_tensor = layers.multiply([input_tensor,abs_val_att])
+        x = layers.add([att_x, att_input_tensor]) 
     #Maxout
-    elif connected == 5:
-        channel_max = K.max(x,axis=2)
-        attention = K.pow(channel_max,POWER)
-        x = layers.add([x, input_tensor]) * attention
+    elif connected == 4:
+        maxout_att = Lambda(maxoutLayer,output_shape=maxoutLayer_output_shape)(x)
+        att_x = layers.multiply([x,maxout_att])
+        att_input_tensor = layers.multiply([input_tensor,maxout_att])
+        x = layers.add([att_x, att_input_tensor])
     x = Activation('relu')(x)
     return x
 
@@ -307,5 +307,5 @@ def update_model(state, weight):
     return model
 
 #
-state = [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 2, 1, 0]
+state = [1, 0, 1, 1, 0, 1, 0, 1, 1, 4, 1, 1, 0, 1, 1, 0]
 update_model(state, 'imagenet')
