@@ -67,6 +67,9 @@ def pop_layer(model):
 
 def init_compile_model(state):
     # build the ResNet50 network
+    # initial_model = applications.ResNet50(include_top=True)
+    # state = [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0]
+    # state = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]
     initial_model = applications.ResNet50(include_top=True)
     initial_state = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     do_not_alter = [0,3,7,13]
@@ -78,15 +81,15 @@ def init_compile_model(state):
                 continue
             initial_state[i] = state[index]
             index += 1
-    print initial_state
-
-    initial_model = build_CNN.update_model(initial_state, 'imagenet')
+    print "State is ", initial_state
+    state = initial_state
+    initial_model = build_CNN.update_model(state, 'imagenet')
     pop_layer(initial_model)
     last = initial_model.layers[-1].output
     preds = Dense(200, activation='softmax', name="fc2")(last)
     model = Model(initial_model.input, preds)
     # model = load_model('my_model.h5')
-    #model.load_weights('my_model1.h5')
+    model.load_weights('my_model.h5')
     print('Model loaded.')
     model.summary()
     # pop_layer(model)
@@ -142,13 +145,15 @@ class PrintRuntime(keras.callbacks.Callback):
 
 # fine-tune the model
 def fine_tune_model(model):
-    tf_config_allow_growth_gpu()
+    # tf_config_allow_growth_gpu()
+    # model = init_compile_model()
     train_generator, validation_generator = init_generators()
     runtime_callback = PrintRuntime()
-    hist = model.fit_generator(
+    model.fit_generator(
         train_generator,
         steps_per_epoch=10000/64,
-        epochs=30,
+        epochs=12,
         validation_data=validation_generator,
         validation_steps=1000/64, verbose=2)
-    model.save('my_model2.h5')
+
+    # model.save('my_model2.h5')
