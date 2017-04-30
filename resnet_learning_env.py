@@ -1,13 +1,14 @@
 # coding: utf-8
 """Define the Queue environment from problem 3 here."""
 
-from __future__ import (absolute_import, division, print_function,
+from __future__ import (absolute_import, print_function,
                         unicode_literals)
 
 from gym import Env, spaces
 from gym.envs.registration import register
 import numpy
 import build_CNN
+import resnet50_training
 
 
 class Resnet01Env(Env):
@@ -25,7 +26,7 @@ class Resnet01Env(Env):
     nA: number of actions
     P: environment model
     """
-    def __init__(self, p1, p2, p3):
+    def __init__(self, fine_tune_all=False):
         self.action_space = spaces.Discrete(4)
         self.observation_space = spaces.MultiDiscrete(
             [(1, 3), (0, 5), (0, 5), (0, 5)])
@@ -35,8 +36,10 @@ class Resnet01Env(Env):
         #initial state
         self._reset()
 
+        self.fine_tune_all = fine_tune_all
+
     def update_model(self):
-        model = build_CNN.update_model(self.state, 'imagenet')
+        model = resnet50_training.init_compile_model(self.state)
         return model
 
     def _reset(self):
@@ -68,20 +71,22 @@ class Resnet01Env(Env):
           state. debug_info is a dictionary. You can fill debug_info
           with any additional information you deem useful.
         """
-        layer_to_change = action / 6
-        change_to_identity = action % 3
+        layer_to_change = int(action) / 2
+        change_to_identity = action % 2
         self.state[layer_to_change] = change_to_identity
         self.model = self.update_model()
 
         #train the model
+        train_history = resnet50_training.fine_tune_model(self.model)
 
         #compute the reward
+        print(train_history)
         #rewards = validation acc or top 5 val accuracy
 
         return tuple(self.state), reward, is_terminal, None
 
     def _render(self, mode='human', close=False):
-        print self.state
+        print(self.state)
 
     def _seed(self, seed=None):
         """Set the random seed.
