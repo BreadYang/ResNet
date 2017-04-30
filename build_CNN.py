@@ -135,7 +135,7 @@ def conv_block(connected, input_tensor, kernel_size, filters, stage, block, stri
 def ResNet50(state, weights, include_top=True,
              input_tensor=None, input_shape=None,
              pooling=None,
-             classes=1000):
+             classes=200):
     """Instantiates the ResNet50 architecture.
     Optionally loads weights pre-trained
     on ImageNet. Note that when using TensorFlow,
@@ -187,9 +187,9 @@ def ResNet50(state, weights, include_top=True,
                          '`None` (random initialization) or `imagenet` '
                          '(pre-training on ImageNet).')
 
-    if weights == 'imagenet' and include_top and classes != 1000:
+    if weights == 'imagenet' and include_top and classes != 200:
         raise ValueError('If using `weights` as imagenet with `include_top`'
-                         ' as true, `classes` should be 1000')
+                         ' as true, `classes` should be 200')
 
     # Determine proper input shape
     input_shape = _obtain_input_shape(input_shape,
@@ -240,7 +240,7 @@ def ResNet50(state, weights, include_top=True,
 
     if include_top:
         x = Flatten()(x)
-        x = Dense(classes, activation='softmax', name='fc1000')(x)
+        x = Dense(classes, activation='softmax', name='fc200')(x)
     else:
         if pooling == 'avg':
             x = GlobalAveragePooling2D()(x)
@@ -258,17 +258,7 @@ def ResNet50(state, weights, include_top=True,
 
     # load weights
     if weights == 'imagenet':
-        if include_top:
-            weights_path = get_file('resnet50_weights_tf_dim_ordering_tf_kernels.h5',
-                                    WEIGHTS_PATH,
-                                    cache_subdir='models',
-                                    md5_hash='a7b3fe01876f51b976af0dea6bc144eb')
-        else:
-            weights_path = get_file('resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5',
-                                    WEIGHTS_PATH_NO_TOP,
-                                    cache_subdir='models',
-                                    md5_hash='a268eb855778b3df3c7506639542a6af')
-        model.load_weights(weights_path)
+        model.load_weights('current_model.h5')
 
         if K.backend() == 'theano':
             layer_utils.convert_all_kernels_in_model(model)
@@ -277,7 +267,7 @@ def ResNet50(state, weights, include_top=True,
             if include_top:
                 maxpool = model.get_layer(name='avg_pool')
                 shape = maxpool.output_shape[1:]
-                dense = model.get_layer(name='fc1000')
+                dense = model.get_layer(name='fc200')
                 layer_utils.convert_dense_weights_data_format(dense, shape, 'channels_first')
 
             if K.backend() == 'tensorflow':
@@ -302,10 +292,9 @@ def update_model(state, weight):
         model = ResNet50(state, include_top=True, weights='imagenet')
     elif weight == 'current':
         model = ResNet50(state, include_top=True, weights='current')
-    # model.save('current_model.h5')
-
+    model.save_weights('current_model.h5')
     return model
 
 #
-#state = [1, 0, 1, 1, 0, 1, 0, 1, 1, 4, 1, 1, 0, 1, 1, 0]
-#update_model(state, 'imagenet')
+state = [1, 0, 1, 1, 0, 1, 0, 1, 1, 4, 1, 1, 0, 1, 1, 0]
+update_model(state, 'imagenet')

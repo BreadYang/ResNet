@@ -36,8 +36,8 @@ import action_generator
 
 img_width, img_height = 224, 224
 
-train_data_dir = '/home/dev/Documents/10703-project/tiny-imagenet-200/train'
-validation_data_dir = '/home/dev/Documents/10703-project/tiny-imagenet-200/val'
+train_data_dir = './train'
+validation_data_dir = './val'
 nb_train_samples = 100000
 nb_validation_samples = 10000
 epochs = 50
@@ -70,7 +70,6 @@ def init_compile_model(state, laststate):
     # build the ResNet50 network
     initial_model = applications.ResNet50(include_top=True)
     # state = [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0]
-
     initial_model = build_CNN.update_model(state, 'imagenet')
     pop_layer(initial_model)
     last = initial_model.layers[-1].output

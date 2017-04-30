@@ -79,7 +79,7 @@ class ActionGen:
         assert len(output) > 0
         output_w_prefix = []
         for action in output:
-            tmpoutput = (self.prefix).copy()
+            tmpoutput = list(np.copy(self.prefix))
             tmpoutput += list(action)
             tmpoutput = add_conv_connection(tmpoutput)
             output_w_prefix.append(list(tmpoutput.copy()))
@@ -127,7 +127,7 @@ def find_last_changed(state1, state2):
 
 ## from 12 to 16
 def add_conv_connection(state):
-    stateold = state.copy()
+    stateold = np.copy(state)
     state = np.zeros(16)
     state[0] = 1
     state[1:3] = stateold[0:2]
@@ -138,19 +138,19 @@ def add_conv_connection(state):
     state[13] = 1
     state[14:16] = stateold[10:12]
     state = [int(i) for i in state]
-    return state
+    return np.asarray(state)
 
 
 ## from 16 to 12
 def rm_conv_connection(state):
-    stateold = state.copy()
+    stateold = np.copy(state)
     state = np.zeros(12)
     state[0:2] = stateold[1:3]
     state[2:5] = stateold[4:7]
     state[5:10] = stateold[8:13]
     state[10:12] = stateold[14:16]
     state = [int(i) for i in state]
-    return state
+    return np.asarray(state)
     ############
 
 ## Test the top three resNet from the previous epoch, with five 1 as prefix
@@ -159,7 +159,7 @@ for dim in range(6):
     actions = generator.getActions(dim+1)
     for action in actions:
         # print(action)
-        model = CNN.update_model(action, "imagenet")
-        accuacy = model.fit
+        # model = CNN.update_model(action, "imagenet")
+        # accuacy = model.fit
         accuacy = 0.5
         generator.storeAccuracy(action, accuacy)
