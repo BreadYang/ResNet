@@ -294,8 +294,6 @@ def ResNet50(state, weights, include_top=True,
         model.load_weights('current_model.h5')
     return model
 
-
-#
 def update_model(state, weight):
     #state = [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     if weight == 'imagenet':
@@ -305,7 +303,3 @@ def update_model(state, weight):
     model.save('current_model.h5')
 
     return model
-
-#
-state = [1, 0, 1, 1, 0, 1, 0, 1, 1, 4, 1, 1, 0, 1, 1, 0]
-update_model(state, 'imagenet')
