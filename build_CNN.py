@@ -77,7 +77,7 @@ def identity_block(connected, input_tensor, kernel_size, filters, stage, block):
         abs_val_att = Lambda(sumAbsVal,output_shape=sumAbsVal_output_shape)(x)
         att_x = layers.multiply([x,abs_val_att])
         att_input_tensor = layers.multiply([input_tensor,abs_val_att])
-        x = layers.add([att_x, att_input_tensor]) 
+        x = layers.add([att_x, att_input_tensor])
     #Maxout
     elif connected == 4:
         maxout_att = Lambda(maxoutLayer,output_shape=maxoutLayer_output_shape)(x)
@@ -216,25 +216,25 @@ def ResNet50(state, weights, include_top=True,
     x = Activation('relu')(x)
     x = MaxPooling2D((3, 3), strides=(2, 2))(x)
 
-    x = conv_block(state[0], x, 3, [64, 64, 256], stage=2, block='blk0blk', strides=(1, 1))
-    x = identity_block(state[1], x, 3, [64, 64, 256], stage=2, block='blk1blk')
-    x = identity_block(state[2], x, 3, [64, 64, 256], stage=2, block='blk2blk')
+    x = conv_block(state[0], x, 3, [64, 64, 256], stage=2, block='a', strides=(1, 1))
+    x = identity_block(state[1], x, 3, [64, 64, 256], stage=2, block='b')
+    x = identity_block(state[2], x, 3, [64, 64, 256], stage=2, block='c')
 
-    x = conv_block(state[3], x, 3, [128, 128, 512], stage=3, block='blk3blk')
-    x = identity_block(state[4], x, 3, [128, 128, 512], stage=3, block='blk4blk')
-    x = identity_block(state[5], x, 3, [128, 128, 512], stage=3, block='blk5blk')
-    x = identity_block(state[6], x, 3, [128, 128, 512], stage=3, block='blk6blk')
+    x = conv_block(state[3], x, 3, [128, 128, 512], stage=3, block='a')
+    x = identity_block(state[4], x, 3, [128, 128, 512], stage=3, block='b')
+    x = identity_block(state[5], x, 3, [128, 128, 512], stage=3, block='c')
+    x = identity_block(state[6], x, 3, [128, 128, 512], stage=3, block='d')
 
-    x = conv_block(state[7], x, 3, [256, 256, 1024], stage=4, block='blk7blk')
-    x = identity_block(state[8], x, 3, [256, 256, 1024], stage=4, block='blk8blk')
-    x = identity_block(state[9], x, 3, [256, 256, 1024], stage=4, block='blk9blk')
-    x = identity_block(state[10], x, 3, [256, 256, 1024], stage=4, block='blk10blk')
-    x = identity_block(state[11], x, 3, [256, 256, 1024], stage=4, block='blk11blk')
-    x = identity_block(state[12], x, 3, [256, 256, 1024], stage=4, block='blk12blk')
+    x = conv_block(state[7], x, 3, [256, 256, 1024], stage=4, block='a')
+    x = identity_block(state[8], x, 3, [256, 256, 1024], stage=4, block='b')
+    x = identity_block(state[9], x, 3, [256, 256, 1024], stage=4, block='c')
+    x = identity_block(state[10], x, 3, [256, 256, 1024], stage=4, block='d')
+    x = identity_block(state[11], x, 3, [256, 256, 1024], stage=4, block='e')
+    x = identity_block(state[12], x, 3, [256, 256, 1024], stage=4, block='f')
 
-    x = conv_block(state[13], x, 3, [512, 512, 2048], stage=5, block='blk13blk')
-    x = identity_block(state[14], x, 3, [512, 512, 2048], stage=5, block='blk14blk')
-    x = identity_block(state[15], x, 3, [512, 512, 2048], stage=5, block='blk15blk')
+    x = conv_block(state[13], x, 3, [512, 512, 2048], stage=5, block='a')
+    x = identity_block(state[14], x, 3, [512, 512, 2048], stage=5, block='b')
+    x = identity_block(state[15], x, 3, [512, 512, 2048], stage=5, block='c')
 
     x = AveragePooling2D((7, 7), name='avg_pool')(x)
 
@@ -294,6 +294,8 @@ def ResNet50(state, weights, include_top=True,
         model.load_weights('current_model.h5')
     return model
 
+
+#
 def update_model(state, weight):
     #state = [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     if weight == 'imagenet':
@@ -303,3 +305,7 @@ def update_model(state, weight):
     # model.save('current_model.h5')
 
     return model
+
+#
+#state = [1, 0, 1, 1, 0, 1, 0, 1, 1, 4, 1, 1, 0, 1, 1, 0]
+#update_model(state, 'imagenet')
