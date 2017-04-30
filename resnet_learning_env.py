@@ -7,7 +7,6 @@ from __future__ import (absolute_import, print_function,
 from gym import Env, spaces
 from gym.envs.registration import register
 import numpy
-import build_CNN
 import resnet50_training
 
 
@@ -22,16 +21,12 @@ class Resnet01Env(Env):
       Whether to fine tune the network on all layers or top 6.
     Attributes
     ----------
-    nS: number of states
-    nA: number of actions
     P: environment model
     """
     def __init__(self, fine_tune_all=False):
-        self.action_space = spaces.Discrete(4)
+        self.action_space = spaces.Discrete(6*2)
         self.observation_space = spaces.MultiDiscrete(
-            [(1, 3), (0, 5), (0, 5), (0, 5)])
-        self.nS = 0
-        self.nA = 0
+            [(0, 1), (0, 1), (0, 1), (0, 1), (0, 1), (0, 1)])
 
         #initial state
         self._reset()
@@ -39,20 +34,26 @@ class Resnet01Env(Env):
         self.fine_tune_all = fine_tune_all
 
     def update_model(self):
+        """Sets the trainable model according to the current state
+        Returns
+        -------
+        model
+          A Keras trainable model
+        """
         model = resnet50_training.init_compile_model(self.state)
         return model
 
     def _reset(self):
         """Reset the environment.
-        The server should always start on Queue 1.
+        The start state is the the original Resnet architecture.
         Returns
         -------
-        (int, int, int, int)
-          A tuple representing the current state with meanings
-          (current queue, num items in 1, num items in 2, num items in
-          3).
+        [int, int, int, int, int, int]
+          A list representing the current state with meanings
+          [layer0_type, layer1_type, layer2_type,
+           layer3_type, layer4_type, layer5_type]
         """
-        self.state = [1,1,1,1,1,1]
+        self.state = [1, 1, 1, 1, 1, 1]
         self.model = self.update_model()
         return self.state
 
@@ -96,54 +97,6 @@ class Resnet01Env(Env):
           Random seed used by numpy.random and random.
         """
         numpy.random.seed(seed)
-
-    def query_model(self, state, action):
-        """Return the possible transition outcomes for a state-action pair.
-        This should be in the same format at the provided environments
-        in section 2.
-        Parameters
-        ----------
-        state
-          State used in query. Should be in the same format at
-          the states returned by reset and step.
-        action: int
-          The action used in query.
-        Returns
-        -------
-        [(prob, nextstate, reward, is_terminal), ...]
-          List of possible outcomes
-        """
-        def all_possible_delta(n):
-            if (n == 1):
-                return [[0],[1]]
-            else:
-                r = all_possible_delta(n-1)
-                l = []
-                for i in r:
-                    l.append(i + [0])
-                    l.append(i+ [1])
-                return l
-        def prob_delta_state(delta_state, probs):
-            prob = 1
-            for i,d in enumerate(delta_state):
-                if d == 0:
-                    prob *= (1-probs[i])
-                else:
-                    prob *= (probs[i])
-            return prob
-
-        state = list(state)
-        max_limit = 5
-        is_terminal = False
-        newstate, reward = self.do_action_only(action, state)
-        probs = [self.p1,self.p2,self.p3]
-        possible_delta = all_possible_delta(3)
-        possible_states = [[newstate[0], newstate[1]+a,newstate[2]+b,newstate[3]+c]for a,b,c in possible_delta]
-        prob_possible_states = [prob_delta_state(ds, probs) for ds in possible_delta]
-        outcomes = [(pr, st, reward, is_terminal) for (pr,st) in zip(possible_states,prob_possible_states)]
-        
-
-        return outcomes
 
 register(
     id='Queue-1-v0',

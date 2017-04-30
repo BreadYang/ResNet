@@ -67,9 +67,6 @@ def pop_layer(model):
 
 def init_compile_model(state):
     # build the ResNet50 network
-    # initial_model = applications.ResNet50(include_top=True)
-    # state = [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0]
-    # state = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]
     initial_model = applications.ResNet50(include_top=True)
     initial_state = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     do_not_alter = [0,3,7,13]
@@ -88,15 +85,9 @@ def init_compile_model(state):
     last = initial_model.layers[-1].output
     preds = Dense(200, activation='softmax', name="fc2")(last)
     model = Model(initial_model.input, preds)
-    # model = load_model('my_model.h5')
     model.load_weights('my_model.h5')
     print('Model loaded.')
     model.summary()
-    # pop_layer(model)
-    # set the first x layers (up to the last conv block)
-    # to non-trainable (weights will not be updated)
-    #for layer in model.layers[:25]:
-        #layer.trainable = False
 
     # compile the model with a SGD/momentum optimizer
     # and a very slow learning rate.
@@ -140,7 +131,6 @@ class PrintRuntime(keras.callbacks.Callback):
         runtime = end-self.begin
         self.run_time.append(runtime)
         if len(self.run_time)%100:
-            # print("Run-time on last batch:", runtime, "seconds")
             print("Avg Run-time on last batch:", sum(self.run_time)/len(self.run_time), "seconds")
 
 # fine-tune the model
