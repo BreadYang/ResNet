@@ -65,25 +65,31 @@ def pop_layer(model):
         model.outputs = [model.layers[-1].output]
     model.built = False
 
-def init_compile_model():
+
+def init_compile_model(state, laststate):
     # build the ResNet50 network
     initial_model = applications.ResNet50(include_top=True)
     # state = [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0]
-    state = [1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0]
+
     initial_model = build_CNN.update_model(state, 'imagenet')
     pop_layer(initial_model)
     last = initial_model.layers[-1].output
     preds = Dense(200, activation='softmax', name="fc2")(last)
     model = Model(initial_model.input, preds)
-    # model = load_model('my_model.h5')
-    model.load_weights('my_model1.h5')
+    # model = load_model('current_model.h5')
+    # model.load_weights('current_model.h5')
     print('Model loaded.')
     model.summary()
     # pop_layer(model)
     # set the first x layers (up to the last conv block)
     # to non-trainable (weights will not be updated)
-    #for layer in model.layers[:25]:
-        #layer.trainable = False
+    trainable_index = action_generator.find_last_changed(state, laststate)
+    for layer in model.layers[:25]:
+        name = layer.get_config()['name']
+        if 'blk' not in name:
+            layer.trainable = False
+        elif int(name.split('blk')[1]) < trainable_index:
+            layer.trainable = False
 
     # compile the model with a SGD/momentum optimizer
     # and a very slow learning rate.
@@ -132,10 +138,16 @@ class PrintRuntime(keras.callbacks.Callback):
 
 # fine-tune the model
 
-tf_config_allow_growth_gpu()
-model = init_compile_model()
+# tf_config_allow_growth_gpu()
+laststate = [1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0]
+state = [1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0]
+print("step1")
+model = init_compile_model(state, laststate)
+print("step2")
 train_generator, validation_generator = init_generators()
+print("step3")
 runtime_callback = PrintRuntime()
+print("step4")
 model.fit_generator(
     train_generator,
     steps_per_epoch=10000/64,

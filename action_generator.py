@@ -1,16 +1,14 @@
 # coding: utf-8
 """Implementation of the action generator for stepwise model selection for ResNet"""
 import numpy as np
-import attention_layers
 import build_CNN as CNN
-import resnet50_training
 
 class ActionGen:
     """Implementation of the action generator.
 
     Parameters
     ----------
-    action_dim: int
+    metwork_dim: int
       Dimension of action space, or the number of residual connections.
     choice_count: int
       Number of choices tested in each epoch (test the # best from previous epoch).
@@ -20,16 +18,16 @@ class ActionGen:
       A predetermined part of residual connection.
     """
 
-    def __init__(self, choice_count, action_dim=16, prefix = [1, 1, 1, 1, 1, 1]):
-        self.action_dim = int(action_dim)
+    def __init__(self, choice_count, network_dim=12, prefix=[1, 1, 1, 1, 1, 1]):
+        self.action_dim = int(network_dim) - len(prefix)
         self.choice_count = int(choice_count)
         self.accuracyDic = {}
         self.prefix = prefix
-        self.action_space = [0, 1, 2, 3, 4]
+        self.action_space = [1, 2, 3, 4]
         self.prefixLen = len(prefix)
         self.bestAction = np.zeros(self.action_dim, dtype=np.int)
         self.bestAccuracy = 0.0
-        for i in range(action_dim):
+        for i in range(self.action_dim):
             index = i + 1
             self.accuracyDic[index] = {}
         self.visited = {}
@@ -59,7 +57,7 @@ class ActionGen:
                 tmp = np.copy(zeros)
                 for residual in self.action_space:
                     tmp[i] = residual
-                    output.append([tmp])
+                    output.append(tmp.copy())
         else:
             action_dict = self.accuracyDic[target_dim - 1]
             sortedDic = sorted(action_dict.items(), key=lambda K: K[1][0] / float(K[1][1]), reverse=True)
@@ -76,19 +74,23 @@ class ActionGen:
                             _action[index] = residual
                             if self.array2num(_action) not in self.visited:
                                 self.visited[self.array2num(_action)] = 1
-                                output.append(list(_action))
+                                output.append(list(_action.copy()))
 
         assert len(output) > 0
         output_w_prefix = []
         for action in output:
-            output_w_prefix.append(self.prefix + action)
-        return output_w_prefix
+            tmpoutput = (self.prefix).copy()
+            tmpoutput += list(action)
+            tmpoutput = add_conv_connection(tmpoutput)
+            output_w_prefix.append(list(tmpoutput.copy()))
+        return list(output_w_prefix)
 
     def storeAccuracy(self, action, accuracy):
         """ Store the accuracy of the action into dictionary
         action: array full action
         accuaracy: float
         """
+        action = rm_conv_connection(action)
         assert max(action) <= 5
         action = action[self.prefixLen:]
         dimension = np.count_nonzero(action)
@@ -101,7 +103,7 @@ class ActionGen:
     def array2num(self, array):
         num = 0
         for i in array:
-            num = num * 10 + i
+            num = int(num * 10) + i
         return num
 
     def num2array(self, numin):
@@ -122,12 +124,42 @@ def find_last_changed(state1, state2):
             break
     return i
 
+
+## from 12 to 16
+def add_conv_connection(state):
+    stateold = state.copy()
+    state = np.zeros(16)
+    state[0] = 1
+    state[1:3] = stateold[0:2]
+    state[3] = 1
+    state[4:7] = stateold[2:5]
+    state[7] = 1
+    state[8:13] = stateold[5:10]
+    state[13] = 1
+    state[14:16] = stateold[10:12]
+    state = [int(i) for i in state]
+    return state
+
+
+## from 16 to 12
+def rm_conv_connection(state):
+    stateold = state.copy()
+    state = np.zeros(12)
+    state[0:2] = stateold[1:3]
+    state[2:5] = stateold[4:7]
+    state[5:10] = stateold[8:13]
+    state[10:12] = stateold[14:16]
+    state = [int(i) for i in state]
+    return state
+    ############
+
 ## Test the top three resNet from the previous epoch, with five 1 as prefix
-generator = ActionGen(3, 16, [1, 1, 1, 1, 1])
-for dim in range(10):
+generator = ActionGen(3, 12, [1, 1, 1, 1, 1])
+for dim in range(6):
     actions = generator.getActions(dim+1)
     for action in actions:
+        # print(action)
         model = CNN.update_model(action, "imagenet")
-        # accuacy = model.fit
+        accuacy = model.fit
         accuacy = 0.5
         generator.storeAccuracy(action, accuacy)

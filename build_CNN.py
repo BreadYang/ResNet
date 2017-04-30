@@ -300,6 +300,6 @@ def update_model(state, weight):
         model = ResNet50(state, include_top=True, weights='imagenet')
     elif weight == 'current':
         model = ResNet50(state, include_top=True, weights='current')
-    model.save('current_model.h5')
+    # model.save('current_model.h5')
 
     return model
