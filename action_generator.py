@@ -25,7 +25,7 @@ class ActionGen:
         self.choice_count = int(choice_count)
         self.accuracyDic = {}
         self.prefix = prefix
-        self.action_space = [0, 1, 2, 3, 4, 5]
+        self.action_space = [0, 1, 2, 3, 4]
         self.prefixLen = len(prefix)
         self.bestAction = np.zeros(self.action_dim, dtype=np.int)
         self.bestAccuracy = 0.0
@@ -114,6 +114,13 @@ class ActionGen:
             index -= 1
         return array
 
+def find_last_changed(state1, state2):
+    assert len(state1) == len(state2)
+    i = 0
+    for i in range(len(state2)):
+        if state2[i] != state1[i]:
+            break
+    return i
 
 ## Test the top three resNet from the previous epoch, with five 1 as prefix
 generator = ActionGen(3, 16, [1, 1, 1, 1, 1])
