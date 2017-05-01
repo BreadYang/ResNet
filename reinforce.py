@@ -15,9 +15,7 @@ def discount_rewards(rewards, discount_factor=0.99):
     return discounted_rewards
 
 def get_action(model, state, action_size):
-    print state, action_size
     policy = model.predict(state, batch_size=1).flatten()
-    print policy
     return np.random.choice(action_size, 1, p=policy)[0]
 
 def makeOptimizer(model, action_size, learning_rate=0.001):

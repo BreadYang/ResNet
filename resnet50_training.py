@@ -30,6 +30,7 @@ from keras.preprocessing.image import ImageDataGenerator
 from keras import optimizers
 from keras.models import Sequential, Model, load_model
 from keras.layers import Dropout, Flatten, Dense
+from keras.callbacks import History, EarlyStopping
 import time
 import build_CNN
 
@@ -136,15 +137,14 @@ class PrintRuntime(keras.callbacks.Callback):
 
 # fine-tune the model
 def fine_tune_model(model):
-    # tf_config_allow_growth_gpu()
-    # model = init_compile_model()
     train_generator, validation_generator = init_generators()
     runtime_callback = PrintRuntime()
-    model.fit_generator(
+    hist = model.fit_generator(
         train_generator,
         steps_per_epoch=10000/64,
-        epochs=12,
+        epochs=2,
         validation_data=validation_generator,
-        validation_steps=1000/64, verbose=2)
-
+        validation_steps=1000/64, verbose=2,
+        callbacks=[History(), EarlyStopping(min_delta=0.01,patience=1)])
+    return hist
     # model.save('my_model2.h5')

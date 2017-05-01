@@ -23,7 +23,7 @@ class Resnet01Env(Env):
     ----------
     P: environment model
     """
-    def __init__(self, fine_tune_all=False):
+    def __init__(self, fine_tune_all=False, max_eps_step=5):
         self.action_space = spaces.Discrete(6*2)
         self.observation_space = spaces.MultiDiscrete(
             [(0, 1), (0, 1), (0, 1), (0, 1), (0, 1), (0, 1)])
@@ -32,6 +32,7 @@ class Resnet01Env(Env):
         self._reset()
 
         self.fine_tune_all = fine_tune_all
+        self.max_eps_step = max_eps_step
 
     def update_model(self):
         """Sets the trainable model according to the current state
@@ -55,6 +56,7 @@ class Resnet01Env(Env):
         """
         self.state = [1, 1, 1, 1, 1, 1]
         self.model = self.update_model()
+        self.eps_step = 0
         return self.state
 
     def _step(self, action):
@@ -81,8 +83,11 @@ class Resnet01Env(Env):
         train_history = resnet50_training.fine_tune_model(self.model)
 
         #compute the reward
-        print(train_history)
-        #rewards = validation acc or top 5 val accuracy
+        hist = train_history.history
+        reward = hist['val_acc'][-1]
+        
+        self.eps_step += 1
+        is_terminal = self.eps_step >= self.max_eps_step
 
         return tuple(self.state), reward, is_terminal, None
 
