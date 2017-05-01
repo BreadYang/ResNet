@@ -36,8 +36,9 @@ import build_CNN
 
 img_width, img_height = 224, 224
 
-train_data_dir = '/home/dev/Documents/10703-project/tiny-imagenet-200/train'
-validation_data_dir = '/home/dev/Documents/10703-project/tiny-imagenet-200/val'
+train_data_dir = '/home/markus_woodson1/ResNet/tiny-imagenet-200/train'
+validation_data_dir = '/home/markus_woodson1/ResNet/tiny-imagenet-200/train'
+
 nb_train_samples = 100000
 nb_validation_samples = 10000
 epochs = 50
@@ -87,7 +88,7 @@ def init_compile_model(state):
     model = Model(initial_model.input, preds)
     model.load_weights('my_model.h5')
     print('Model loaded.')
-    model.summary()
+    #model.summary()
 
     # compile the model with a SGD/momentum optimizer
     # and a very slow learning rate.

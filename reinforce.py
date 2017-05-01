@@ -1,7 +1,6 @@
 import gym
 import numpy as np
 import os
-from imitation import load_model
 
 import keras.backend as K
 from keras.optimizers import Adam
@@ -16,7 +15,9 @@ def discount_rewards(rewards, discount_factor=0.99):
     return discounted_rewards
 
 def get_action(model, state, action_size):
+    print state, action_size
     policy = model.predict(state, batch_size=1).flatten()
+    print policy
     return np.random.choice(action_size, 1, p=policy)[0]
 
 def makeOptimizer(model, action_size, learning_rate=0.001):
@@ -74,10 +75,9 @@ def eval_cur_policy(env, model):
     return np.mean(scores), min_score, max_score
 
 def reinforce(env, reinforce_model):
-    state_size = env.observation_space.shape[0]
+    state_size = env.observation_space.shape
     action_size = env.action_space.n
-
-    #reinforce_model = load_model(os.getcwd()+'/CartPole-v0_config.yaml')
+    print "Action size: {}".format(action_size)
 
     opt = makeOptimizer(reinforce_model, action_size)
 
@@ -90,7 +90,8 @@ def reinforce(env, reinforce_model):
         done = False
         score = 0
 
-        if (e % k) == 0:
+        '''
+        if (e % 1) == 0:
             avg_r, min_r, max_r = eval_cur_policy(env, reinforce_model)
             eps.append(e)
             scores.append(avg_r)
@@ -100,13 +101,14 @@ def reinforce(env, reinforce_model):
                                                                                           avg_r,
                                                                                           min_r,
                                                                                           max_r)
-
+        '''
         state = env.reset()
         state = np.reshape(state, [1, state_size])
         #episode_len = 0
 
         while not done:
             action = get_action(reinforce_model, state, action_size)
+            print "Action: {}".format(action)
             next_state, reward, done, _ = env.step(action)
             next_state = np.reshape(next_state, [1, state_size])
 
