@@ -36,13 +36,14 @@ import action_generator
 
 img_width, img_height = 224, 224
 
-train_data_dir = './train'
-validation_data_dir = './val'
+train_data_dir = 'gs://resnet_bucket/tiny_image_200/train'
+validation_data_dir = 'gs://resnet_bucket/tiny_image_200/val'
 nb_train_samples = 100000
 nb_validation_samples = 10000
 epochs = 50
 batch_size = 64
 
+# tensorflow.python.lib.io.file_io.FileIO(train_file, mode='r')
 
 def tf_config_allow_growth_gpu():
     config = tf.ConfigProto()
@@ -76,7 +77,7 @@ def init_compile_model(state, laststate):
     preds = Dense(200, activation='softmax', name="fc2")(last)
     model = Model(initial_model.input, preds)
     # model = load_model('current_model.h5')
-    # model.load_weights('current_model.h5')
+    model.load_weights('current_model.h5')
     print('Model loaded.')
     model.summary()
     # pop_layer(model)
@@ -137,21 +138,21 @@ class PrintRuntime(keras.callbacks.Callback):
 
 # fine-tune the model
 
-# tf_config_allow_growth_gpu()
-laststate = [1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0]
-state = [1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0]
-print("step1")
-model = init_compile_model(state, laststate)
-print("step2")
-train_generator, validation_generator = init_generators()
-print("step3")
-runtime_callback = PrintRuntime()
-print("step4")
-model.fit_generator(
-    train_generator,
-    steps_per_epoch=10000/64,
-    epochs=30,
-    validation_data=validation_generator,
-    validation_steps=1000/64, verbose=2)
+def test():  # tf_config_allow_growth_gpu()
+    laststate = [1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0]
+    state = [1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0]
+    print("step1")
+    model = init_compile_model(state, laststate)
+    print("step2")
+    train_generator, validation_generator = init_generators()
+    print("step3")
+    runtime_callback = PrintRuntime()
+    print("step4")
+    model.fit_generator(
+        train_generator,
+        steps_per_epoch=10000 / 64,
+        epochs=30,
+        validation_data=validation_generator,
+        validation_steps=1000 / 64, verbose=2)
 
-model.save('my_model2.h5')
+    model.save('my_model2.h5')
