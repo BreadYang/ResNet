@@ -3,7 +3,7 @@ import numpy as np
 
 import resnet_learning_env as renv
 
-from keras.models import Sequential
+from keras.models import Sequential, load_model
 from keras.layers import Dense
 from keras.layers import Activation
 
@@ -18,6 +18,9 @@ def makeReinforceModel(num_layers=2):
     model.add(Dense(num_layers*6))
     model.add(Activation('softmax'))
     return model
+
+def loadReinforceModel():
+    return load_model("reinforce_model.h5")
 
 #Set up the agent and enviornment
 #Our agent is a simple 1 hidden layer NN

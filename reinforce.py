@@ -73,7 +73,7 @@ def eval_cur_policy(env, model):
             max_score = score
     return np.mean(scores), min_score, max_score
 
-def reinforce(env, reinforce_model, reset=True):
+def reinforce(env, reinforce_model, reset_in_epochs=5):
     state_size = env.observation_space.shape
     action_size = env.action_space.n
     print "Action size: {}".format(action_size)
@@ -101,7 +101,7 @@ def reinforce(env, reinforce_model, reset=True):
                                                                                           min_r,
                                                                                           max_r)
         '''
-        if e and e % 5 == 0:
+        if e and e % reset_in_epochs == 0:
             reinforce_model.save("reinforce_model.h5")
             K.clear_session()
             reinforce_model = load_model("reinforce_model.h5")
