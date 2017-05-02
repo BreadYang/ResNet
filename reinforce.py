@@ -5,6 +5,7 @@ import os
 import keras.backend as K
 from keras.optimizers import Adam
 import matplotlib.pyplot as plt
+from keras.models import load_model
 
 def discount_rewards(rewards, discount_factor=0.99):
     discounted_rewards = np.zeros_like(rewards)
@@ -72,7 +73,7 @@ def eval_cur_policy(env, model):
             max_score = score
     return np.mean(scores), min_score, max_score
 
-def reinforce(env, reinforce_model):
+def reinforce(env, reinforce_model, reset=True):
     state_size = env.observation_space.shape
     action_size = env.action_space.n
     print "Action size: {}".format(action_size)
@@ -100,6 +101,12 @@ def reinforce(env, reinforce_model):
                                                                                           min_r,
                                                                                           max_r)
         '''
+        if e and e % 5 == 0:
+            reinforce_model.save("reinforce_model.h5")
+            K.clear_session()
+            reinforce_model = load_model("reinforce_model.h5")
+            opt = makeOptimizer(reinforce_model, action_size)
+
         state = env.reset()
         state = np.reshape(state, [1, state_size])
         #episode_len = 0

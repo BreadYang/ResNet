@@ -22,7 +22,6 @@ data/
             ...
 ```
 '''
-import tensorflow as tf
 import keras.backend as K
 import keras
 from keras import applications
@@ -37,8 +36,8 @@ import build_CNN
 
 img_width, img_height = 224, 224
 
-train_data_dir = '/home/markus_woodson1/ResNet/tiny-imagenet-200/train'
-validation_data_dir = '/home/markus_woodson1/ResNet/tiny-imagenet-200/train'
+train_data_dir = '/home/dev/Documents/10703-project/tiny-imagenet-200/train'
+validation_data_dir = '/home/dev/Documents/10703-project/tiny-imagenet-200/val'
 
 nb_train_samples = 100000
 nb_validation_samples = 10000
@@ -47,9 +46,9 @@ batch_size = 64
 
 
 def tf_config_allow_growth_gpu():
-    config = tf.ConfigProto()
+    config = K.tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    sess = tf.Session(config=config)
+    sess = K.tf.Session(config=config)
     K.set_session(sess)
 
 
@@ -69,7 +68,8 @@ def pop_layer(model):
 
 def init_compile_model(state):
     # build the ResNet50 network
-    initial_model = applications.ResNet50(include_top=True)
+    # initial_model = applications.ResNet50(include_top=True)
+    # tf.reset_default_graph()
     initial_state = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     do_not_alter = [0,3,7,13]
     num_states = len(initial_state)
@@ -87,7 +87,7 @@ def init_compile_model(state):
     last = initial_model.layers[-1].output
     preds = Dense(200, activation='softmax', name="fc2")(last)
     model = Model(initial_model.input, preds)
-    model.load_weights('my_model.h5')
+    model.load_weights('current.h5')
     print('Model loaded.')
     #model.summary()
 
@@ -142,7 +142,7 @@ def fine_tune_model(model):
     hist = model.fit_generator(
         train_generator,
         steps_per_epoch=10000/64,
-        epochs=2,
+        epochs=12,
         validation_data=validation_generator,
         validation_steps=1000/64, verbose=2,
         callbacks=[History(), EarlyStopping(min_delta=0.01,patience=1)])

@@ -7,6 +7,7 @@ from __future__ import (absolute_import, print_function,
 from gym import Env, spaces
 from gym.envs.registration import register
 import numpy
+import copy
 import resnet50_training
 
 
@@ -23,14 +24,14 @@ class Resnet01Env(Env):
     ----------
     P: environment model
     """
-    def __init__(self, fine_tune_all=False, max_eps_step=5):
+    def __init__(self, fine_tune_all=False, max_eps_step=5, allow_continuous_finetuning=False):
         self.action_space = spaces.Discrete(6*2)
         self.observation_space = spaces.MultiDiscrete(
             [(0, 1), (0, 1), (0, 1), (0, 1), (0, 1), (0, 1)])
-
+        self.allow_continuous_finetuning = allow_continuous_finetuning
         #initial state
         self._reset()
-
+        self.last_reward = 0
         self.fine_tune_all = fine_tune_all
         self.max_eps_step = max_eps_step
 
@@ -41,6 +42,7 @@ class Resnet01Env(Env):
         model
           A Keras trainable model
         """
+
         model = resnet50_training.init_compile_model(self.state)
         return model
 
@@ -54,8 +56,13 @@ class Resnet01Env(Env):
           [layer0_type, layer1_type, layer2_type,
            layer3_type, layer4_type, layer5_type]
         """
+        old_state = []
+        if hasattr(self, "state"):
+            old_state = self.state
+
         self.state = [1, 1, 1, 1, 1, 1]
-        self.model = self.update_model()
+        if old_state != self.state:
+            self.model = self.update_model()
         self.eps_step = 0
         return self.state
 
@@ -76,20 +83,26 @@ class Resnet01Env(Env):
         """
         layer_to_change = int(action) / 2
         change_to_identity = action % 2
+        old_state = copy.copy(self.state)
         self.state[layer_to_change] = change_to_identity
-        self.model = self.update_model()
 
-        #train the model
-        train_history = resnet50_training.fine_tune_model(self.model)
+        if self.allow_continuous_finetuning or self.state != old_state:
+            self.model = self.update_model()
 
-        #compute the reward
-        hist = train_history.history
-        reward = hist['val_acc'][-1]
-        
-        self.eps_step += 1
-        is_terminal = self.eps_step >= self.max_eps_step
+            #train the model
+            train_history = resnet50_training.fine_tune_model(self.model)
 
-        return tuple(self.state), reward, is_terminal, None
+            #compute the reward
+            hist = train_history.history
+            reward = hist['val_acc'][-1]
+            self.last_reward = reward
+            self.eps_step += 1
+            is_terminal = self.eps_step >= self.max_eps_step
+
+            return tuple(self.state), reward, is_terminal, None
+        else:
+            is_terminal = self.eps_step >= self.max_eps_step
+            return tuple(self.state), self.last_reward, is_terminal, None
 
     def _render(self, mode='human', close=False):
         print(self.state)

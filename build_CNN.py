@@ -258,7 +258,7 @@ def ResNet50(state, weights, include_top=True,
 
     # load weights
     if weights == 'imagenet':
-        model.load_weights('current_model.h5')
+        # model.load_weights('current_model.h5')
 
         if K.backend() == 'theano':
             layer_utils.convert_all_kernels_in_model(model)
@@ -281,18 +281,21 @@ def ResNet50(state, weights, include_top=True,
                               'at ~/.keras/keras.json.')
 
     elif weights == 'current':
-        model.load_weights('current_model.h5')
+        pass
+        # model.load_weights('current_model.h5')
     return model
 
 
 #
 def update_model(state, weight):
     #state = [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    # K.tf.reset_default_graph()
+    
     if weight == 'imagenet':
         model = ResNet50(state, include_top=True, weights='imagenet')
     elif weight == 'current':
         model = ResNet50(state, include_top=True, weights='current')
-    model.save_weights('current_model.h5')
+    model.save_weights('current.h5')
     return model
 
 #
