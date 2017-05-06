@@ -9,6 +9,13 @@ from gym.envs.registration import register
 import numpy
 import copy
 import resnet50_training
+import build_CNN
+
+# CHANGE THIS TO YOUR DIRECTORY
+train_data_dir = 'tiny-imagenet-200/train'
+val_data_dir = 'tiny-imagenet-200/val'
+# pretrained_imagenet = 'resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
+pretrained_imagenet = 'top_half_weights.f5'
 
 
 class Resnet01Env(Env):
@@ -24,17 +31,27 @@ class Resnet01Env(Env):
     ----------
     P: environment model
     """
-    def __init__(self, fine_tune_all=False, max_eps_step=5, allow_continuous_finetuning=False):
+    def __init__(self, fine_tune_all=False, max_eps_step=5, fast_split_model=True,
+                    pretrained_weights=pretrained_imagenet,
+                    allow_continuous_finetuning=False):
+        self.allow_continuous_finetuning = allow_continuous_finetuning
         self.action_space = spaces.Discrete(6*2)
         self.observation_space = spaces.MultiDiscrete(
             [(0, 1), (0, 1), (0, 1), (0, 1), (0, 1), (0, 1)])
-        self.allow_continuous_finetuning = allow_continuous_finetuning
+        self.fast_split_model = True
         #initial state
-        self._reset()
+        self.state = [1, 1, 1, 1, 1, 1]
         self.last_reward = 0
         self.fine_tune_all = fine_tune_all
         self.max_eps_step = max_eps_step
 
+
+        if self.fast_split_model:
+            build_CNN.save_bottleneck_features(train_data_dir=train_data_dir, val_data_dir=val_data_dir, overwrite=False)
+            self.model = build_CNN.top_model(self._convert_state_to_internal_state(self.state), weights_path=pretrained_weights)
+
+        else:
+            self.model = resnet50_training.init_compile_model(self.state)
     def update_model(self):
         """Sets the trainable model according to the current state
         Returns
@@ -42,8 +59,11 @@ class Resnet01Env(Env):
         model
           A Keras trainable model
         """
-
-        model = resnet50_training.init_compile_model(self.state)
+        model = None
+        if not self.fast_split_model:
+            model = resnet50_training.init_compile_model(self.state)
+        else:
+            model = build_CNN.top_model(self._convert_state_to_internal_state(self.state))
         return model
 
     def _reset(self):
@@ -57,14 +77,27 @@ class Resnet01Env(Env):
            layer3_type, layer4_type, layer5_type]
         """
         old_state = []
-        if hasattr(self, "state"):
-            old_state = self.state
-
+        old_state = self.state
         self.state = [1, 1, 1, 1, 1, 1]
         if old_state != self.state:
             self.model = self.update_model()
         self.eps_step = 0
         return self.state
+
+
+    def _convert_state_to_internal_state(self, state):
+        initial_state = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        do_not_alter = [0,3,7,13]
+        num_states = len(initial_state)
+        index = 0
+        for i in xrange(num_states):
+            if i >= 9:
+                if i in do_not_alter:
+                    continue
+                initial_state[i] = state[index]
+                index += 1
+
+        return initial_state
 
     def _step(self, action):
         """Execute the specified action.
@@ -88,10 +121,13 @@ class Resnet01Env(Env):
 
         if self.allow_continuous_finetuning or self.state != old_state:
             self.model = self.update_model()
-
+            print("State is " + str(self.state))
             #train the model
-            train_history = resnet50_training.fine_tune_model(self.model)
-
+            train_history = None
+            if self.fast_split_model:
+                train_history = build_CNN.finetune_top_model(self.model)
+            else:
+                train_history = resnet50_training.fine_tune_model(self.model)
             #compute the reward
             hist = train_history.history
             reward = hist['val_acc'][-1]

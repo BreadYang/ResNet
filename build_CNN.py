@@ -2,7 +2,8 @@ from __future__ import print_function
 
 import numpy as np
 import warnings
-
+import h5py
+import os
 from keras.layers import Input
 from keras import layers
 from keras.layers import Dense
@@ -24,13 +25,22 @@ from keras.applications.imagenet_utils import decode_predictions
 from keras.applications.imagenet_utils import preprocess_input
 from keras.applications.imagenet_utils import _obtain_input_shape
 from keras.engine.topology import get_source_inputs
+from keras.utils.io_utils import HDF5Matrix
+from keras import optimizers
 
 from attention_layers import *
 
 
-WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels.h5'
-WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
+from image import ImageDataGenerator
+from keras.callbacks import ModelCheckpoint, History
+import json
+
+
+WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels.h5'
+# WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
+
+WEIGHTS_PATH_NO_TOP = 'resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
 def identity_block(connected, input_tensor, kernel_size, filters, stage, block):
     """The identity block is the block that has no conv layer at shortcut.
@@ -255,7 +265,8 @@ def ResNet50(state, weights, include_top=True,
         inputs = img_input
     # Create model.
     model = Model(inputs, x, name='resnet50')
-
+    model.load_weights(WEIGHTS_PATH_NO_TOP, by_name=True)
+    # model.load_weights(weights_path)
     # load weights
     if weights == 'imagenet':
         # model.load_weights('current_model.h5')
@@ -286,18 +297,216 @@ def ResNet50(state, weights, include_top=True,
     return model
 
 
+# To be called only by save_bottleneck_features
+def bottom_model(state, input_shape=None, weights_path=WEIGHTS_PATH_NO_TOP):
+    input_shape = _obtain_input_shape(input_shape,
+                                      default_size=224,
+                                      min_size=197,
+                                      data_format=K.image_data_format(),
+                                      include_top=True)
+
+
+    img_input = Input(shape=input_shape)
+
+    if K.image_data_format() == 'channels_last':
+        bn_axis = 3
+    else:
+        bn_axis = 1
+
+    x = ZeroPadding2D((3, 3))(img_input)
+    x = Conv2D(64, (7, 7), strides=(2, 2), name='conv1')(x)
+    x = BatchNormalization(axis=bn_axis, name='bn_conv1')(x)
+    x = Activation('relu')(x)
+    x = MaxPooling2D((3, 3), strides=(2, 2))(x)
+
+    x = conv_block(state[0], x, 3, [64, 64, 256], stage=2, block='a', strides=(1, 1))
+    x = identity_block(state[1], x, 3, [64, 64, 256], stage=2, block='b')
+    x = identity_block(state[2], x, 3, [64, 64, 256], stage=2, block='c')
+
+    x = conv_block(state[3], x, 3, [128, 128, 512], stage=3, block='a')
+    x = identity_block(state[4], x, 3, [128, 128, 512], stage=3, block='b')
+    x = identity_block(state[5], x, 3, [128, 128, 512], stage=3, block='c')
+    x = identity_block(state[6], x, 3, [128, 128, 512], stage=3, block='d')
+
+    x = conv_block(state[7], x, 3, [256, 256, 1024], stage=4, block='a')
+
+
+    inputs = img_input
+    # Create model.
+    model = Model(inputs, x, name='resnet50')
+    # MAKE SURE NAMES MATCH
+    model.load_weights(weights_path, by_name=True)
+    return model
+
+# Train only top model
+# State before index 8 is ignored since it is part of bottom model
+# If pretrained_weights not given loads from save_load_weights
+# always saves to save_load_weights when val loss reduces
+def top_model(state, classes=200, weights_path='top_half_weights.f5'):
+    # Build bottom half
+    print("top_model started")
+
+    inputs = Input(shape=(14, 14, 1024))
+
+    x = identity_block(state[8], inputs, 3, [256, 256, 1024], stage=4, block='b')
+    x = identity_block(state[9], x, 3, [256, 256, 1024], stage=4, block='c')
+    x = identity_block(state[10], x, 3, [256, 256, 1024], stage=4, block='d')
+    x = identity_block(state[11], x, 3, [256, 256, 1024], stage=4, block='e')
+    x = identity_block(state[12], x, 3, [256, 256, 1024], stage=4, block='f')
+
+    x = conv_block(state[13], x, 3, [512, 512, 2048], stage=5, block='a')
+    x = identity_block(state[14], x, 3, [512, 512, 2048], stage=5, block='b')
+    x = identity_block(state[15], x, 3, [512, 512, 2048], stage=5, block='c')
+
+    x = AveragePooling2D((7, 7), name='avg_pool')(x)
+
+    x = Flatten()(x)
+    x = Dense(classes, activation='softmax', name='fc200')(x)
+    model = Model(inputs, x, name='resnet50')
+    if weights_path != None:
+        model.load_weights(weights_path, by_name=True)
+
+
+    model.compile(optimizer=optimizers.SGD(lr=5e-4, momentum=0.0),
+                    loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    print("top_model compiled")
+    return model
 #
+
+def finetune_top_model(model, save_weights='top_half_weights.f5', epochs=10, batch_size=64, mini_batch=True):
+    h5f = h5py.File('bottleneck_features.h5','r')
+
+    # If you want to load into memory do the following
+    # train_data = h5f['training'][:5000]
+    # train_labels = h5f['train_labels'][:5000]
+
+    train_data = HDF5Matrix("bottleneck_features.h5", 'training')
+    train_labels = HDF5Matrix("bottleneck_features.h5", 'train_labels')
+
+    val_data = HDF5Matrix("bottleneck_features.h5", 'val')
+    val_labels = HDF5Matrix("bottleneck_features.h5", 'val_labels')
+    checkpointer = ModelCheckpoint(filepath=save_weights, verbose=1, save_best_only=True)
+    history = History()
+
+    # If mini_batch then we split datasets into 10 parts and pick a 1/10th training
+    # and 1/10th validation set for 10 iterations
+
+
+
+    if mini_batch:
+        pick = np.random.randint(0,9)
+        train_data = HDF5Matrix("bottleneck_features.h5", 'training', start=10000*pick, end=10000*(pick+1))
+        train_labels = HDF5Matrix("bottleneck_features.h5", 'train_labels', start=10000*pick, end=10000*(pick+1))
+        pick = np.random.randint(0,9)
+        val_data = HDF5Matrix("bottleneck_features.h5", 'val', start=1000*pick, end=1000*(pick+1))
+        val_labels = HDF5Matrix("bottleneck_features.h5", 'val_labels', start=1000*pick, end=1000*(pick+1))
+    try:
+        history_returned = model.fit(train_data, train_labels, validation_data=(val_data,val_labels),epochs=epochs, batch_size=batch_size, shuffle='batch', callbacks=[checkpointer, history])
+        return history_returned
+    except KeyboardInterrupt as e:
+        print("keyboard interrupted, saving to history.json and history.txt")
+        if hasattr(history, "history"):
+            json.dump(history.history, open("history.json",'w'))
+            np.savetxt("history.txt", history.history, delimiter=",")
+        raise(e)
+
 def update_model(state, weight):
     #state = [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     # K.tf.reset_default_graph()
-    
+
     if weight == 'imagenet':
         model = ResNet50(state, include_top=True, weights='imagenet')
     elif weight == 'current':
         model = ResNet50(state, include_top=True, weights='current')
-    model.save_weights('current.h5')
+    # model.save_weights('current.h5')
     return model
 
-#
-state = [1, 0, 1, 1, 0, 1, 0, 1, 1, 4, 1, 1, 0, 1, 1, 0]
-update_model(state, 'imagenet')
+
+def save_bottleneck_features(train_data_dir, val_data_dir, weights_path=WEIGHTS_PATH_NO_TOP, overwrite=False):
+    bottleneck_features_name = "bottleneck_features.h5"
+    if os.path.isfile(bottleneck_features_name):
+        if overwrite:
+            print("Overwriting bottleneck_features.h5")
+            os.remove
+        else:
+            print("bottleneck_features.h5 exists, use overwrite=True to overwrite.")
+            return
+    return
+    print(bottleneck_features_name + "is being created...~80GB for ImageNet200")
+    batch_size=16
+    img_width, img_height = 224, 224
+
+    nb_train_samples = 100000
+    nb_val_samples = 10000
+    state = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    model = bottom_model(state, weights_path=weights_path)
+
+    val_datagen = ImageDataGenerator(rescale=1. / 255)
+    seed = 0
+    val_generator = val_datagen.flow_from_directory(
+        val_data_dir,
+        target_size=(img_height, img_width),
+        batch_size=batch_size,
+        shuffle=True, seed=seed)
+
+
+    train_datagen = ImageDataGenerator(rescale=1. / 255)
+
+    train_generator = train_datagen.flow_from_directory(
+        train_data_dir,
+        target_size=(img_height, img_width),
+        batch_size=batch_size,
+        shuffle=True, seed=seed)
+
+    seed = 0
+
+    np.random.seed(seed)
+    train_index_array = np.random.permutation(100000)[:nb_train_samples]
+
+
+    np.random.seed(seed)
+    val_index_array = np.random.permutation(10000)[:nb_val_samples]
+
+    chunk = 25
+    train_parts = (nb_train_samples//batch_size)//chunk
+    train_samples = nb_train_samples//train_parts
+    # real_samples = samples - batch_size + samples%batch_size
+    val_parts = (nb_val_samples//batch_size)//chunk
+    val_samples = nb_val_samples//val_parts
+    last = 0
+
+
+
+    with h5py.File(bottleneck_features_name, 'w') as hf:
+
+        train_labels = hf.create_dataset("train_labels",  data=np.take(train_generator.classes[:nb_train_samples], train_index_array))
+        val_labels = hf.create_dataset("val_labels",  data=np.take(val_generator.classes[:nb_val_samples], val_index_array))
+
+        val = hf.create_dataset("val",  (nb_val_samples, 14, 14, 1024), chunks=(64, 14, 14, 1024))
+
+        for i in range(val_parts):
+            print("Val done: " + str(100 * i/val_parts) + "%")
+            max_q_size = 1
+            val[i*val_samples:(i+1)*val_samples,:,:,:] = model.predict_generator(
+                    val_generator, val_samples // batch_size, max_q_size=max_q_size)
+            val_generator.batch_index -= max_q_size
+
+        train = hf.create_dataset("training",  (nb_train_samples, 14, 14, 1024), chunks=(64, 14, 14, 1024))
+        # dset[:,:,:,:] = model.predict_generator(
+        #     train_generator, nb_train_samples // batch_size)
+        for i in range(train_parts):
+            print("Train done: " + str(100 * i/train_parts) + "%")
+            max_q_size = 1
+            train[i*train_samples:(i+1)*train_samples,:,:,:] = model.predict_generator(
+                    train_generator, train_samples // batch_size, max_q_size=max_q_size)
+            # recorrect for the over-calling of predict_generator by max_q_size
+            train_generator.batch_index -= max_q_size
+
+# EXAMPLE USAGE:
+# train_data_dir = '/home/dev/Documents/10703-project/tiny-imagenet-200/train'
+# val_data_dir = '/home/dev/Documents/10703-project/tiny-imagenet-200/val'
+# save_bottleneck_features(train_data_dir=train_data_dir, val_data_dir=val_data_dir, overwrite=False)
+# #
+# state = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+# model = top_model(state, weights_path='top_half_weights.f5')
+# finetune_top_model(model, save_weights='top_half_weights.f5')

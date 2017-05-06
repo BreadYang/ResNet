@@ -73,7 +73,7 @@ def eval_cur_policy(env, model):
             max_score = score
     return np.mean(scores), min_score, max_score
 
-def reinforce(env, reinforce_model, reset_in_epochs=5):
+def reinforce(env, reinforce_model, reset_in_steps=3):
     state_size = env.observation_space.shape
     action_size = env.action_space.n
     print "Action size: {}".format(action_size)
@@ -81,7 +81,7 @@ def reinforce(env, reinforce_model, reset_in_epochs=5):
     opt = makeOptimizer(reinforce_model, action_size)
 
     states, actions, rewards = [], [], []
-
+    reset = 0
     #k = 50
     scores, max_scores, min_scores, eps = [], [], [], []
 
@@ -101,22 +101,27 @@ def reinforce(env, reinforce_model, reset_in_epochs=5):
                                                                                           min_r,
                                                                                           max_r)
         '''
-        if e and e % reset_in_epochs == 0:
-            reinforce_model.save("reinforce_model.h5")
-            K.clear_session()
-            reinforce_model = load_model("reinforce_model.h5")
-            opt = makeOptimizer(reinforce_model, action_size)
+
 
         state = env.reset()
         state = np.reshape(state, [1, state_size])
         #episode_len = 0
 
         while not done:
+            if reset % reset_in_steps == 0:
+                reinforce_model.save("reinforce_model.h5")
+                K.clear_session()
+                reinforce_model = load_model("reinforce_model.h5")
+                opt = makeOptimizer(reinforce_model, action_size)
+                reset = 0
+            else:
+                reset += 1
+
+
             action = get_action(reinforce_model, state, action_size)
             print "Action: {}".format(action)
             next_state, reward, done, _ = env.step(action)
             next_state = np.reshape(next_state, [1, state_size])
-
             states.append(state[0])
             rewards.append(reward)
             act = np.zeros(action_size)
