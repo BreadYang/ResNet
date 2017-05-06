@@ -38,7 +38,7 @@ class Resnet01Env(Env):
         self.action_space = spaces.Discrete(6*2)
         self.observation_space = spaces.MultiDiscrete(
             [(0, 1), (0, 1), (0, 1), (0, 1), (0, 1), (0, 1)])
-        self.fast_split_model = True
+        self.fast_split_model = fast_split_model
         #initial state
         self.state = [1, 1, 1, 1, 1, 1]
         self.last_reward = 0
