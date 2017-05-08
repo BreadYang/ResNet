@@ -82,32 +82,19 @@ def reinforce(env, reinforce_model, reset_in_steps=3):
 
     states, actions, rewards = [], [], []
     reset = 0
-    #k = 50
     scores, max_scores, min_scores, eps = [], [], [], []
 
+    total_rewards = []
+    
     for e in xrange(600):
         done = False
         score = 0
 
-        '''
-        if (e % 1) == 0:
-            avg_r, min_r, max_r = eval_cur_policy(env, reinforce_model)
-            eps.append(e)
-            scores.append(avg_r)
-            min_scores.append(avg_r - min_r)
-            max_scores.append(max_r - avg_r)
-            print "Episode: {} - Avg Reward: {} - Min Reward: {} - Max Reward: {}".format(e,
-                                                                                          avg_r,
-                                                                                          min_r,
-                                                                                          max_r)
-        '''
-
-
         state = env.reset()
         state = np.reshape(state, [1, state_size])
-        #episode_len = 0
 
         while not done:
+            # Perform hard resets of session to avoid memory leak errors
             if reset % reset_in_steps == 0:
                 reinforce_model.save("reinforce_model.h5")
                 K.clear_session()
@@ -132,13 +119,7 @@ def reinforce(env, reinforce_model, reset_in_steps=3):
 
             if done:
                 trainOnEpisodes(opt, states, actions, rewards)
+                total_rewards.appen(np.mean(rewards))
                 states, actions, rewards = [], [], []
 
-    err = np.array([min_scores, max_scores])
-    plt.errorbar(eps, scores,yerr=err, ecolor='r')
-    plt.xlabel("Episode")
-    plt.ylabel("Reward")
-    plt.title("Problem 3: REINFORCE Performance")
-    plt.show()
-
-    return 0
+    return total_rewards

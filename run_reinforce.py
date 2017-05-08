@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 import resnet_learning_env as renv
+import matplotlib.pyplot as plt
 
 from keras.models import Sequential, load_model
 from keras.layers import Dense
@@ -30,4 +31,12 @@ env = renv.Resnet01Env()
 import reinforce
 
 #Run reinforcement learning
-reinforce.reinforce(env, reinforce_model)
+avg_rewards = reinforce.reinforce(env, reinforce_model)
+
+#Plotting performance over time
+plt.plot(rewards)
+plt.xlabel("Episode")
+plt.ylabel("Average Validation Accuracy")
+
+#Save the best learned Resnet model
+env.save_model('best_model.h5')

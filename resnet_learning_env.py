@@ -39,7 +39,8 @@ class Resnet01Env(Env):
         self.observation_space = spaces.MultiDiscrete(
             [(0, 1), (0, 1), (0, 1), (0, 1), (0, 1), (0, 1)])
         self.fast_split_model = fast_split_model
-        #initial state
+        
+        #Initial state is all identity connections
         self.state = [1, 1, 1, 1, 1, 1]
         self.last_reward = 0
         self.fine_tune_all = fine_tune_all
@@ -143,6 +144,9 @@ class Resnet01Env(Env):
     def _render(self, mode='human', close=False):
         print(self.state)
 
+    def save_model(self,filepath):
+        self.model.save(filepath)
+
     def _seed(self, seed=None):
         """Set the random seed.
         Parameters
@@ -151,17 +155,3 @@ class Resnet01Env(Env):
           Random seed used by numpy.random and random.
         """
         numpy.random.seed(seed)
-
-register(
-    id='Queue-1-v0',
-    entry_point='deeprl_hw1.queue_envs:QueueEnv',
-    kwargs={'p1': .1,
-            'p2': .9,
-            'p3': .1})
-
-register(
-    id='Queue-2-v0',
-    entry_point='deeprl_hw1.queue_envs:QueueEnv',
-    kwargs={'p1': .1,
-            'p2': .1,
-            'p3': .1})
