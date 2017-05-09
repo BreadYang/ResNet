@@ -29,7 +29,7 @@ class Resnet01Env(Env):
                  max_eps_step=5,
                  fine_tune_epochs=20,
                  fast_split_model=True,
-                 pretrained_weights='top_half_weights.f5',
+                 pretrained_weights='top_half_weights.h5',
                  allow_continuous_finetuning=False):
         self.allow_continuous_finetuning = allow_continuous_finetuning
         self.action_space = spaces.Discrete(6*2)
