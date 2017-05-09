@@ -8,6 +8,17 @@ from keras.models import Sequential, load_model
 from keras.layers import Dense
 from keras.layers import Activation
 
+from tensorflow import flags
+
+FLAGS = flags.FLAGS
+flags.DEFINE_string("train_data_dir", '',
+                     "Path to training data for Resnet.")
+flags.DEFINE_string("val_data_dir", '',
+                     "Path to validation data for Resnet.")
+flags.DEFINE_bool("save_features", False,
+                  "Whether to save bottleneck features before training. Only do this once")
+flags.DEFINE_integer("epochs", 20, "The number of epochs to fine tune for")
+
 def makeReinforceModel(num_layers=2):
     """
     num_layers: The number of choices of layer types to make
@@ -23,20 +34,28 @@ def makeReinforceModel(num_layers=2):
 def loadReinforceModel():
     return load_model("reinforce_model.h5")
 
-#Set up the agent and enviornment
-#Our agent is a simple 1 hidden layer NN
-reinforce_model = makeReinforceModel()
-env = renv.Resnet01Env()
 
-import reinforce
+if __name__ == "__main__":
+    #Save bottleneck features to save on computation time.
+    if FLAGS.save_features:
+        save_bottleneck_features(train_data_dir=FLAGS.train_data_dir,
+                                val_data_dir=FLAGS.val_data_dir, 
+                                overwrite=False)
 
-#Run reinforcement learning
-avg_rewards = reinforce.reinforce(env, reinforce_model)
+    #Set up the agent and enviornment
+    #Our agent is a simple 1 hidden layer NN
+    reinforce_model = makeReinforceModel()
+    env = renv.Resnet01Env(fine_tune_epochs=FLAGS.epochs)
 
-#Plotting performance over time
-plt.plot(rewards)
-plt.xlabel("Episode")
-plt.ylabel("Average Validation Accuracy")
+    import reinforce
 
-#Save the best learned Resnet model
-env.save_model('best_model.h5')
+    #Run reinforcement learning
+    avg_rewards = reinforce.reinforce(env, reinforce_model)
+
+    #Plotting performance over time
+    plt.plot(rewards)
+    plt.xlabel("Episode")
+    plt.ylabel("Average Validation Accuracy")
+
+    #Save the best learned Resnet model
+    env.save_model('best_model.h5')

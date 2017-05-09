@@ -30,16 +30,11 @@ from keras import optimizers
 
 from attention_layers import *
 
-
-
 from image import ImageDataGenerator
-from keras.callbacks import ModelCheckpoint, History
+from keras.callbacks import ModelCheckpoint, History, EarlyStopping
 import json
 
-
 WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels.h5'
-# WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
-
 WEIGHTS_PATH_NO_TOP = 'resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
 def identity_block(connected, input_tensor, kernel_size, filters, stage, block):
@@ -78,21 +73,21 @@ def identity_block(connected, input_tensor, kernel_size, filters, stage, block):
         x = layers.add([x, input_tensor])
     #Softmax attention
     elif connected == 2:
-        softmax_att = Lambda(softmaxLayer,output_shape=softmaxLayer_output_shape)(x)
-        att_x = layers.multiply([x,softmax_att])
-        att_input_tensor = layers.multiply([input_tensor,softmax_att])
-        x = layers.add([att_x,att_input_tensor])
+        softmax_att = Lambda(softmaxLayer, output_shape=softmaxLayer_output_shape)(x)
+        att_x = layers.multiply([x, softmax_att])
+        att_input_tensor = layers.multiply([input_tensor, softmax_att])
+        x = layers.add([att_x, att_input_tensor])
     #Sum of absolute values
     elif connected == 3:
-        abs_val_att = Lambda(sumAbsVal,output_shape=sumAbsVal_output_shape)(x)
-        att_x = layers.multiply([x,abs_val_att])
-        att_input_tensor = layers.multiply([input_tensor,abs_val_att])
+        abs_val_att = Lambda(sumAbsVal, output_shape=sumAbsVal_output_shape)(x)
+        att_x = layers.multiply([x, abs_val_att])
+        att_input_tensor = layers.multiply([input_tensor, abs_val_att])
         x = layers.add([att_x, att_input_tensor])
     #Maxout
     elif connected == 4:
-        maxout_att = Lambda(maxoutLayer,output_shape=maxoutLayer_output_shape)(x)
-        att_x = layers.multiply([x,maxout_att])
-        att_input_tensor = layers.multiply([input_tensor,maxout_att])
+        maxout_att = Lambda(maxoutLayer, output_shape=maxoutLayer_output_shape)(x)
+        att_x = layers.multiply([x, maxout_att])
+        att_input_tensor = layers.multiply([input_tensor, maxout_att])
         x = layers.add([att_x, att_input_tensor])
     x = Activation('relu')(x)
     return x
@@ -144,8 +139,7 @@ def conv_block(connected, input_tensor, kernel_size, filters, stage, block, stri
 
 def ResNet50(state, weights, include_top=True,
              input_tensor=None, input_shape=None,
-             pooling=None,
-             classes=200):
+             pooling=None, classes=200):
     """Instantiates the ResNet50 architecture.
     Optionally loads weights pre-trained
     on ImageNet. Note that when using TensorFlow,
@@ -266,11 +260,7 @@ def ResNet50(state, weights, include_top=True,
     # Create model.
     model = Model(inputs, x, name='resnet50')
     model.load_weights(WEIGHTS_PATH_NO_TOP, by_name=True)
-    # model.load_weights(weights_path)
-    # load weights
     if weights == 'imagenet':
-        # model.load_weights('current_model.h5')
-
         if K.backend() == 'theano':
             layer_utils.convert_all_kernels_in_model(model)
 
@@ -293,7 +283,6 @@ def ResNet50(state, weights, include_top=True,
 
     elif weights == 'current':
         pass
-        # model.load_weights('current_model.h5')
     return model
 
 
@@ -342,7 +331,7 @@ def bottom_model(state, input_shape=None, weights_path=WEIGHTS_PATH_NO_TOP):
 # State before index 8 is ignored since it is part of bottom model
 # If pretrained_weights not given loads from save_load_weights
 # always saves to save_load_weights when val loss reduces
-def top_model(state, classes=200, weights_path='top_half_weights.f5'):
+def top_model(state, classes=200, weights_path='top_half_weights.h5'):
     # Build bottom half
     print("top_model started")
 
@@ -368,12 +357,12 @@ def top_model(state, classes=200, weights_path='top_half_weights.f5'):
 
 
     model.compile(optimizer=optimizers.SGD(lr=5e-4, momentum=0.0),
-                    loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+                  loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     print("top_model compiled")
     return model
-#
 
-def finetune_top_model(model, save_weights='top_half_weights.f5', epochs=10, batch_size=64, mini_batch=True):
+def finetune_top_model(model, save_weights='top_half_weights.h5',
+                       epochs=10, batch_size=64, mini_batch=True):
     h5f = h5py.File('bottleneck_features.h5','r')
 
     # If you want to load into memory do the following
@@ -387,12 +376,10 @@ def finetune_top_model(model, save_weights='top_half_weights.f5', epochs=10, bat
     val_labels = HDF5Matrix("bottleneck_features.h5", 'val_labels')
     checkpointer = ModelCheckpoint(filepath=save_weights, verbose=1, save_best_only=True)
     history = History()
+    early_stopping = EarlyStopping(patience=1)
 
     # If mini_batch then we split datasets into 10 parts and pick a 1/10th training
     # and 1/10th validation set for 10 iterations
-
-
-
     if mini_batch:
         pick = np.random.randint(0,9)
         train_data = HDF5Matrix("bottleneck_features.h5", 'training', start=10000*pick, end=10000*(pick+1))
@@ -401,7 +388,9 @@ def finetune_top_model(model, save_weights='top_half_weights.f5', epochs=10, bat
         val_data = HDF5Matrix("bottleneck_features.h5", 'val', start=1000*pick, end=1000*(pick+1))
         val_labels = HDF5Matrix("bottleneck_features.h5", 'val_labels', start=1000*pick, end=1000*(pick+1))
     try:
-        history_returned = model.fit(train_data, train_labels, validation_data=(val_data,val_labels),epochs=epochs, batch_size=batch_size, shuffle='batch', callbacks=[checkpointer, history])
+        history_returned = model.fit(train_data, train_labels, validation_data=(val_data,val_labels),
+                                     epochs=epochs, batch_size=batch_size, shuffle='batch', 
+                                     callbacks=[checkpointer, history, early_stopping])
         return history_returned
     except KeyboardInterrupt as e:
         print("keyboard interrupted, saving to history.json and history.txt")
@@ -411,18 +400,14 @@ def finetune_top_model(model, save_weights='top_half_weights.f5', epochs=10, bat
         raise(e)
 
 def update_model(state, weight):
-    #state = [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    # K.tf.reset_default_graph()
-
     if weight == 'imagenet':
         model = ResNet50(state, include_top=True, weights='imagenet')
     elif weight == 'current':
         model = ResNet50(state, include_top=True, weights='current')
-    # model.save_weights('current.h5')
     return model
 
-
-def save_bottleneck_features(train_data_dir, val_data_dir, weights_path=WEIGHTS_PATH_NO_TOP, overwrite=False):
+def save_bottleneck_features(train_data_dir, val_data_dir, weights_path=WEIGHTS_PATH_NO_TOP,
+                             overwrite=False):
     bottleneck_features_name = "bottleneck_features.h5"
     if os.path.isfile(bottleneck_features_name):
         if overwrite:
@@ -431,9 +416,7 @@ def save_bottleneck_features(train_data_dir, val_data_dir, weights_path=WEIGHTS_
         else:
             print("bottleneck_features.h5 exists, use overwrite=True to overwrite.")
             return
-    return
     print(bottleneck_features_name + "is being created...~80GB for ImageNet200")
-    batch_size=16
     img_width, img_height = 224, 224
 
     nb_train_samples = 100000
@@ -448,7 +431,6 @@ def save_bottleneck_features(train_data_dir, val_data_dir, weights_path=WEIGHTS_
         target_size=(img_height, img_width),
         batch_size=batch_size,
         shuffle=True, seed=seed)
-
 
     train_datagen = ImageDataGenerator(rescale=1. / 255)
 
@@ -470,12 +452,9 @@ def save_bottleneck_features(train_data_dir, val_data_dir, weights_path=WEIGHTS_
     chunk = 25
     train_parts = (nb_train_samples//batch_size)//chunk
     train_samples = nb_train_samples//train_parts
-    # real_samples = samples - batch_size + samples%batch_size
     val_parts = (nb_val_samples//batch_size)//chunk
     val_samples = nb_val_samples//val_parts
     last = 0
-
-
 
     with h5py.File(bottleneck_features_name, 'w') as hf:
 
@@ -492,8 +471,6 @@ def save_bottleneck_features(train_data_dir, val_data_dir, weights_path=WEIGHTS_
             val_generator.batch_index -= max_q_size
 
         train = hf.create_dataset("training",  (nb_train_samples, 14, 14, 1024), chunks=(64, 14, 14, 1024))
-        # dset[:,:,:,:] = model.predict_generator(
-        #     train_generator, nb_train_samples // batch_size)
         for i in range(train_parts):
             print("Train done: " + str(100 * i/train_parts) + "%")
             max_q_size = 1
@@ -501,12 +478,3 @@ def save_bottleneck_features(train_data_dir, val_data_dir, weights_path=WEIGHTS_
                     train_generator, train_samples // batch_size, max_q_size=max_q_size)
             # recorrect for the over-calling of predict_generator by max_q_size
             train_generator.batch_index -= max_q_size
-
-# EXAMPLE USAGE:
-# train_data_dir = '/home/dev/Documents/10703-project/tiny-imagenet-200/train'
-# val_data_dir = '/home/dev/Documents/10703-project/tiny-imagenet-200/val'
-# save_bottleneck_features(train_data_dir=train_data_dir, val_data_dir=val_data_dir, overwrite=False)
-# #
-# state = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-# model = top_model(state, weights_path='top_half_weights.f5')
-# finetune_top_model(model, save_weights='top_half_weights.f5')

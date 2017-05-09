@@ -11,12 +11,6 @@ import copy
 import resnet50_training
 import build_CNN
 
-# CHANGE THIS TO YOUR DIRECTORY
-train_data_dir = 'tiny-imagenet-200/train'
-val_data_dir = 'tiny-imagenet-200/val'
-# pretrained_imagenet = 'resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5'
-pretrained_imagenet = 'top_half_weights.f5'
-
 
 class Resnet01Env(Env):
     """Implements a Residual network training enviornment.
@@ -25,34 +19,39 @@ class Resnet01Env(Env):
     layers are left untrainable to improve training speed.
     Parameters
     ----------
-    fine_tune_all: bool
-      Whether to fine tune the network on all layers or top 6.
     Attributes
     ----------
     P: environment model
     """
-    def __init__(self, fine_tune_all=False, max_eps_step=5, fast_split_model=True,
-                    pretrained_weights=pretrained_imagenet,
-                    allow_continuous_finetuning=False):
+    def __init__(self, 
+                 train_data_dir='tiny-imagenet-200/train',
+                 val_data_dir='tiny-imagenet-200/val',
+                 max_eps_step=5,
+                 fine_tune_epochs=20,
+                 fast_split_model=True,
+                 pretrained_weights='top_half_weights.f5',
+                 allow_continuous_finetuning=False):
         self.allow_continuous_finetuning = allow_continuous_finetuning
         self.action_space = spaces.Discrete(6*2)
         self.observation_space = spaces.MultiDiscrete(
             [(0, 1), (0, 1), (0, 1), (0, 1), (0, 1), (0, 1)])
         self.fast_split_model = fast_split_model
+
+        self.fine_tune_epochs = fine_tune_epochs
         
         #Initial state is all identity connections
         self.state = [1, 1, 1, 1, 1, 1]
         self.last_reward = 0
-        self.fine_tune_all = fine_tune_all
         self.max_eps_step = max_eps_step
 
-
         if self.fast_split_model:
-            build_CNN.save_bottleneck_features(train_data_dir=train_data_dir, val_data_dir=val_data_dir, overwrite=False)
-            self.model = build_CNN.top_model(self._convert_state_to_internal_state(self.state), weights_path=pretrained_weights)
-
+            build_CNN.save_bottleneck_features(train_data_dir=train_data_dir,
+                                               val_data_dir=val_data_dir, overwrite=False)
+            self.model = build_CNN.top_model(self._convert_state_to_internal_state(self.state),
+                                             weights_path=pretrained_weights)
         else:
             self.model = resnet50_training.init_compile_model(self.state)
+
     def update_model(self):
         """Sets the trainable model according to the current state
         Returns
@@ -85,10 +84,18 @@ class Resnet01Env(Env):
         self.eps_step = 0
         return self.state
 
-
     def _convert_state_to_internal_state(self, state):
+        """Converts entire network state to our network state.
+        Since we are only editing the last 6 trainable layers this
+        method is used to convert from a state of size 16 to a state
+        of size 6.
+        Returns
+        -------
+        state
+            A list of length 6 representing our model state
+        """
         initial_state = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        do_not_alter = [0,3,7,13]
+        do_not_alter = [0, 3, 7, 13]
         num_states = len(initial_state)
         index = 0
         for i in xrange(num_states):
@@ -126,7 +133,7 @@ class Resnet01Env(Env):
             #train the model
             train_history = None
             if self.fast_split_model:
-                train_history = build_CNN.finetune_top_model(self.model)
+                train_history = build_CNN.finetune_top_model(self.model, epochs=self.fine_tune_epochs)
             else:
                 train_history = resnet50_training.fine_tune_model(self.model)
             #compute the reward

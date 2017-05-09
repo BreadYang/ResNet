@@ -119,7 +119,7 @@ def reinforce(env, reinforce_model, reset_in_steps=3):
 
             if done:
                 trainOnEpisodes(opt, states, actions, rewards)
-                total_rewards.appen(np.mean(rewards))
+                total_rewards.append(np.mean(rewards))
                 states, actions, rewards = [], [], []
 
     return total_rewards
