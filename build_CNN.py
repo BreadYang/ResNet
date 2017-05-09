@@ -333,8 +333,6 @@ def bottom_model(state, input_shape=None, weights_path=WEIGHTS_PATH_NO_TOP):
 # always saves to save_load_weights when val loss reduces
 def top_model(state, classes=200, weights_path='top_half_weights.h5'):
     # Build bottom half
-    print("top_model started")
-
     inputs = Input(shape=(14, 14, 1024))
 
     x = identity_block(state[8], inputs, 3, [256, 256, 1024], stage=4, block='b')
