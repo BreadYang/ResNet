@@ -23,7 +23,8 @@ class Resnet01Env(Env):
     ----------
     P: environment model
     """
-    def __init__(self, 
+    def __init__(self,
+                 num_possible_connections=2
                  train_data_dir='tiny-imagenet-200/train',
                  val_data_dir='tiny-imagenet-200/val',
                  max_eps_step=5,
@@ -32,9 +33,10 @@ class Resnet01Env(Env):
                  pretrained_weights='top_half_weights.h5',
                  allow_continuous_finetuning=False):
         self.allow_continuous_finetuning = allow_continuous_finetuning
-        self.action_space = spaces.Discrete(6*2)
+        self.action_space = spaces.Discrete(6*num_possible_connections)
+        state_space = tuple(range(num_possible_connections))
         self.observation_space = spaces.MultiDiscrete(
-            [(0, 1), (0, 1), (0, 1), (0, 1), (0, 1), (0, 1)])
+            [state_space, state_space, state_space, state_space, state_space, state_space])
         self.fast_split_model = fast_split_model
 
         self.fine_tune_epochs = fine_tune_epochs
@@ -43,6 +45,7 @@ class Resnet01Env(Env):
         self.state = [1, 1, 1, 1, 1, 1]
         self.last_reward = 0
         self.max_eps_step = max_eps_step
+        self.num_possible_connections = num_possible_connections
 
         if self.fast_split_model:
             build_CNN.save_bottleneck_features(train_data_dir=train_data_dir,
@@ -122,8 +125,8 @@ class Resnet01Env(Env):
           state. debug_info is a dictionary. You can fill debug_info
           with any additional information you deem useful.
         """
-        layer_to_change = int(action) / 2
-        change_to_identity = action % 2
+        layer_to_change = int(action) / self.num_possible_connections
+        change_to_identity = action % self.num_possible_connections
         old_state = copy.copy(self.state)
         self.state[layer_to_change] = change_to_identity
 

@@ -74,52 +74,57 @@ def eval_cur_policy(env, model):
     return np.mean(scores), min_score, max_score
 
 def reinforce(env, reinforce_model, reset_in_steps=3):
-    state_size = env.observation_space.shape
-    action_size = env.action_space.n
-    print "Action size: {}".format(action_size)
+    with open('logs.txt', "a") as logs:
+        state_size = env.observation_space.shape
+        action_size = env.action_space.n
+        print "Action size: {}".format(action_size)
 
-    opt = makeOptimizer(reinforce_model, action_size)
+        opt = makeOptimizer(reinforce_model, action_size)
 
-    states, actions, rewards = [], [], []
-    reset = 0
-    scores, max_scores, min_scores, eps = [], [], [], []
+        states, actions, rewards = [], [], []
+        reset = 0
+        scores, max_scores, min_scores, eps = [], [], [], []
 
-    total_rewards = []
-    
-    for e in xrange(600):
-        done = False
-        score = 0
+        total_rewards = []
+        
+        for e in xrange(600):
+            done = False
+            score = 0
 
-        state = env.reset()
-        state = np.reshape(state, [1, state_size])
+            state = env.reset()
+            state = np.reshape(state, [1, state_size])
 
-        while not done:
-            # Perform hard resets of session to avoid memory leak errors
-            if reset % reset_in_steps == 0:
-                reinforce_model.save("reinforce_model.h5")
-                K.clear_session()
-                reinforce_model = load_model("reinforce_model.h5")
-                opt = makeOptimizer(reinforce_model, action_size)
-                reset = 0
-            else:
-                reset += 1
+            while not done:
+                # Perform hard resets of session to avoid memory leak errors
+                if reset % reset_in_steps == 0:
+                    reinforce_model.save("reinforce_model.h5")
+                    K.clear_session()
+                    reinforce_model = load_model("reinforce_model.h5")
+                    opt = makeOptimizer(reinforce_model, action_size)
+                    reset = 0
+                else:
+                    reset += 1
 
 
-            action = get_action(reinforce_model, state, action_size)
-            print "Action: {}".format(action)
-            next_state, reward, done, _ = env.step(action)
-            next_state = np.reshape(next_state, [1, state_size])
-            states.append(state[0])
-            rewards.append(reward)
-            act = np.zeros(action_size)
-            act[action] = 1
-            actions.append(act)
+                action = get_action(reinforce_model, state, action_size)
+                print "Action: {}".format(action)
+                next_state, reward, done, _ = env.step(action)
+                next_state = np.reshape(next_state, [1, state_size])
+                states.append(state[0])
+                rewards.append(reward)
 
-            state = next_state
+                #Log rewards
+                logs.write(str(reward))
 
-            if done:
-                trainOnEpisodes(opt, states, actions, rewards)
-                total_rewards.append(np.mean(rewards))
-                states, actions, rewards = [], [], []
+                act = np.zeros(action_size)
+                act[action] = 1
+                actions.append(act)
+
+                state = next_state
+
+                if done:
+                    trainOnEpisodes(opt, states, actions, rewards)
+                    total_rewards.append(np.mean(rewards))
+                    states, actions, rewards = [], [], []
 
     return total_rewards
