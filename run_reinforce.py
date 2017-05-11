@@ -18,6 +18,7 @@ flags.DEFINE_string("val_data_dir", '',
 flags.DEFINE_bool("save_features", False,
                   "Whether to save bottleneck features before training. Only do this once")
 flags.DEFINE_integer("epochs", 20, "The number of epochs to fine tune for")
+flags.DEFINE_bool("soft_start", False, "Whether to penalize doing the same action twice.")
 
 def makeReinforceModel(num_layers=2):
     """
@@ -34,7 +35,6 @@ def makeReinforceModel(num_layers=2):
 def loadReinforceModel():
     return load_model("reinforce_model.h5")
 
-
 if __name__ == "__main__":
     #Save bottleneck features to save on computation time.
     if FLAGS.save_features:
@@ -50,10 +50,10 @@ if __name__ == "__main__":
     import reinforce
 
     #Run reinforcement learning
-    avg_rewards = reinforce.reinforce(env, reinforce_model)
+    avg_rewards = reinforce.reinforce(env, reinforce_model, soft_start=FLAGS.soft_start)
 
     #Plotting performance over time
-    plt.plot(rewards)
+    plt.plot(avg_rewards)
     plt.xlabel("Episode")
     plt.ylabel("Average Validation Accuracy")
 

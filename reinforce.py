@@ -41,39 +41,7 @@ def trainOnEpisodes(opt, states, actions, rewards):
     opt([states, actions, discounted_rewards])
     return
 
-def eval_cur_policy(env, model):
-    state_size = env.observation_space.shape[0]
-    action_size = env.action_space.n
-    min_score = np.inf
-    max_score = -np.inf
-    scores = []
-    for _ in xrange(100):
-        done = False
-        score = 0
-        state = env.reset()
-        state = np.reshape(state, [1, state_size])
-        eps_step = 0
-
-        while not done:
-            action = get_action(model, state, action_size)
-            next_state, reward, done, info = env.step(action)
-            next_state = np.reshape(next_state, [1, state_size])
-            eps_step += 1
-
-            if eps_step > 199:
-                done = True
-
-            score += reward
-            state = next_state
-
-        scores.append(score)
-        if score < min_score:
-            min_score = score
-        if score > max_score:
-            max_score = score
-    return np.mean(scores), min_score, max_score
-
-def reinforce(env, reinforce_model, reset_in_steps=3):
+def reinforce(env, reinforce_model, reset_in_steps=3, soft_start=False):
     with open('logs.txt', "a") as logs:
         state_size = env.observation_space.shape
         action_size = env.action_space.n
@@ -86,6 +54,7 @@ def reinforce(env, reinforce_model, reset_in_steps=3):
         scores, max_scores, min_scores, eps = [], [], [], []
 
         total_rewards = []
+        prev_action = None
         
         for e in xrange(600):
             done = False
@@ -107,11 +76,17 @@ def reinforce(env, reinforce_model, reset_in_steps=3):
 
 
                 action = get_action(reinforce_model, state, action_size)
+                
                 print "Action: {}".format(action)
-                next_state, reward, done, _ = env.step(action)
-                next_state = np.reshape(next_state, [1, state_size])
+                if prev_action == action and e < 10 and soft_start:
+                    done = True
+                    reward = 0.0
+                else:
+                    next_state, reward, done, _ = env.step(action)
+                    next_state = np.reshape(next_state, [1, state_size])
                 states.append(state[0])
                 rewards.append(reward)
+                total_reward.append(reward)
 
                 #Log rewards
                 logs.write(str(reward))
@@ -124,7 +99,6 @@ def reinforce(env, reinforce_model, reset_in_steps=3):
 
                 if done:
                     trainOnEpisodes(opt, states, actions, rewards)
-                    total_rewards.append(np.mean(rewards))
                     states, actions, rewards = [], [], []
 
     return total_rewards
