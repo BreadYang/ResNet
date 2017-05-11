@@ -24,7 +24,7 @@ class Resnet01Env(Env):
     P: environment model
     """
     def __init__(self,
-                 num_possible_connections=2
+                 num_possible_connections=2,
                  train_data_dir='tiny-imagenet-200/train',
                  val_data_dir='tiny-imagenet-200/val',
                  max_eps_step=5,
