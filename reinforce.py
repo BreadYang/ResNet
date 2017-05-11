@@ -89,7 +89,7 @@ def reinforce(env, reinforce_model, reset_in_steps=3, soft_start=False):
                 total_reward.append(reward)
 
                 #Log rewards
-                logs.write(str(reward))
+                logs.writerow([str(reward)])
 
                 act = np.zeros(action_size)
                 act[action] = 1

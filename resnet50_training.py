@@ -1,27 +1,3 @@
-'''
-Training and testing data structure
-```
-data/
-    train/
-        cat1/
-            cat1001.jpg
-            cat1002.jpg
-            ...
-        cat2/
-            cat2001.jpg
-            cat2002.jpg
-            ...
-    validation/
-        cat1/
-            cat1001.jpg
-            cat1002.jpg
-            ...
-        cat2/
-            cat2001.jpg
-            cat2002.jpg
-            ...
-```
-'''
 import keras.backend as K
 import keras
 from keras import applications
@@ -33,7 +9,6 @@ from keras.callbacks import History, EarlyStopping
 import time
 import build_CNN
 
-
 img_width, img_height = 224, 224
 
 train_data_dir = '/home/dev/Documents/10703-project/tiny-imagenet-200/train'
@@ -41,16 +16,12 @@ validation_data_dir = '/home/dev/Documents/10703-project/tiny-imagenet-200/val'
 
 nb_train_samples = 100000
 nb_validation_samples = 10000
-epochs = 50
-batch_size = 64
-
 
 def tf_config_allow_growth_gpu():
     config = K.tf.ConfigProto()
     config.gpu_options.allow_growth = True
     sess = K.tf.Session(config=config)
     K.set_session(sess)
-
 
 def pop_layer(model):
     if not model.outputs:
@@ -67,9 +38,6 @@ def pop_layer(model):
     model.built = False
 
 def init_compile_model(state):
-    # build the ResNet50 network
-    # initial_model = applications.ResNet50(include_top=True)
-    # tf.reset_default_graph()
     initial_state = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     do_not_alter = [0,3,7,13]
     num_states = len(initial_state)
@@ -89,7 +57,6 @@ def init_compile_model(state):
     model = Model(initial_model.input, preds)
     model.load_weights('current.h5')
     print('Model loaded.')
-    #model.summary()
 
     # compile the model with a SGD/momentum optimizer
     # and a very slow learning rate.
@@ -99,7 +66,7 @@ def init_compile_model(state):
     print('Model compiled.')
     return model
 
-def init_generators():
+def init_generators(batch_size):
     # prepare data augmentation configuration
     train_datagen = ImageDataGenerator(
         rescale=1. / 255,
@@ -136,15 +103,14 @@ class PrintRuntime(keras.callbacks.Callback):
             print("Avg Run-time on last batch:", sum(self.run_time)/len(self.run_time), "seconds")
 
 # fine-tune the model
-def fine_tune_model(model):
-    train_generator, validation_generator = init_generators()
+def fine_tune_model(model, batch_size=64, epochs=12):
+    train_generator, validation_generator = init_generators(batch_size)
     runtime_callback = PrintRuntime()
     hist = model.fit_generator(
         train_generator,
         steps_per_epoch=10000/64,
-        epochs=12,
+        epochs=epochs,
         validation_data=validation_generator,
         validation_steps=1000/64, verbose=2,
         callbacks=[History(), EarlyStopping(min_delta=0.01,patience=1)])
     return hist
-    # model.save('my_model2.h5')
