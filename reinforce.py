@@ -56,7 +56,7 @@ def reinforce(env, reinforce_model, reset_in_steps=3, soft_start=False):
         total_rewards = []
         prev_action = None
         
-        for e in xrange(600):
+        for e in xrange(100):
             done = False
             score = 0
 
@@ -94,6 +94,7 @@ def reinforce(env, reinforce_model, reset_in_steps=3, soft_start=False):
                 act = np.zeros(action_size)
                 act[action] = 1
                 actions.append(act)
+                prev_action = action
 
                 state = next_state
 
